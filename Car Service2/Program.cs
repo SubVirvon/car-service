@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Car_Service2
 {
@@ -49,7 +47,7 @@ namespace Car_Service2
 
                 if(ChooseElement(commands.Length) == 0)
                 {
-                    Сontinue(client.BrokenDetail);
+                    СontinueService(client);
                 }
                 else
                 {
@@ -59,29 +57,34 @@ namespace Car_Service2
                 }
 
                 if(_storage.GetAvailableDetailsCount() == 0)
-                    ShowFinishText($"У вас закончились детали для ремонта\nВаш счет: {_money} рублей", ref isWork);
+                {
+                    ShowFinishText($"У вас закончились детали для ремонта\nВаш счет: {_money} рублей");
+                    isWork = false;
+                }
                 else if(_money <= 0)
-                    ShowFinishText("У вас не хватает денег. Вы закрылись", ref isWork);
+                {
+                    ShowFinishText("У вас не хватает денег. Вы закрылись");
+                    isWork = false;
+                }
 
                 Console.Clear();
             }
         }
 
-        private void ShowFinishText(string text, ref bool isWork)
+        private void ShowFinishText(string text)
         {
             Console.Clear();
             Console.WriteLine(text);
             Console.ReadKey();
-            isWork = false;
         }
 
-        private void Сontinue(Detail brokenDetail)
+        private void СontinueService(Client client)
         {
             Console.Clear();
 
             _storage.ShowAvailableDetailsInfo(cursorPositionX: 2);
 
-            Console.WriteLine($"\nТребует замены: {brokenDetail.Name}");
+            Console.WriteLine($"\nТребует замены: {client.BrokenDetail.Name}");
 
             Detail selectedDetail = _storage.GetDetail(ChooseElement(_storage.GetAvailableDetailsCount()));
             int workCost = selectedDetail.Cost / 2;
@@ -89,7 +92,7 @@ namespace Car_Service2
 
             Console.Clear();
 
-            if (selectedDetail.Equals(brokenDetail))
+            if (selectedDetail.Equals(client.BrokenDetail))
             {
                 result += workCost + selectedDetail.Cost;
                 
@@ -170,13 +173,13 @@ namespace Car_Service2
     {
         private Random _random;
         private Detail[] _detailsVariants;
-        private Dictionary<Detail, int> _availableDetails;
+        private List<Cell> _availableDetails;
 
         public Storage(Random random)
         {
             _random = random;
             _detailsVariants = new Detail[] { new Detail("двигатель", 20800), new Detail("свечи", 1070), new Detail("резина", 6200), new Detail("боковое стекло", 1420), new Detail("лобовое стекло", 3600), new Detail("заднее стекло", 2450), new Detail("боковая дверь", 6830), new Detail("капот", 9800), new Detail("спойлер", 3990), new Detail("зеркало заднего вида", 1230) };
-            _availableDetails = new Dictionary<Detail, int>();
+            _availableDetails = new List<Cell>();
 
             int minDetailCount = 1;
             int maxDetailCount = 5;
@@ -185,21 +188,23 @@ namespace Car_Service2
             {
                 int detailCount = random.Next(minDetailCount, maxDetailCount + 1);
 
-                _availableDetails.Add(detail, detailCount);
+                _availableDetails.Add(new Cell(detail, detailCount));
             }
         }
 
         public void RemoveDetail(Detail detail)
         {
-            _availableDetails[detail]--;
+            Cell desiredCell = _availableDetails.Where(cell => cell.Detail.Equals(detail)).First();
 
-            if (_availableDetails[detail] <= 0)
-                _availableDetails.Remove(detail);
+            desiredCell.TakeOneDetail();
+
+            if (desiredCell.Count <= 0)
+                _availableDetails.Remove(desiredCell);
         }
 
         public int GetAvailableDetailsCount()
         {
-            return _availableDetails.Keys.Count;
+            return _availableDetails.Count;
         }
 
         public Detail GetDetail()
@@ -209,18 +214,37 @@ namespace Car_Service2
 
         public Detail GetDetail(int index)
         {
-            return _availableDetails.ElementAt(index).Key;
+            return _availableDetails.ElementAt(index).Detail;
         }
 
         public void ShowAvailableDetailsInfo(int cursorPositionY = 0, int cursorPositionX = 0)
         {
-            foreach (var detail in _availableDetails)
+            foreach (var cell in _availableDetails)
             {
+                Detail detail = cell.Detail;
+
                 Console.SetCursorPosition(cursorPositionX, cursorPositionY);
-                Console.WriteLine($"{detail.Key.Name} - {detail.Key.Cost} рублей ({detail.Value} шт.)");
+                Console.WriteLine($"{detail.Name} - {detail.Cost} рублей ({cell.Count} шт.)");
 
                 cursorPositionY++;
             }
+        }
+    }
+
+    class Cell
+    {
+        public Detail Detail { get; private set; }
+        public int Count { get; private set; }
+
+        public Cell(Detail detail, int count)
+        {
+            Detail = detail;
+            Count = count;
+        }
+
+        public void TakeOneDetail()
+        {
+            Count--;
         }
     }
 
